@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Second Opinion</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <p class="eyebrow">Hack Days Solan 2026</p>
+      <h1>Second Opinion</h1>
+      <p class="subtitle">
+        Don't just validate your idea — stress-test it. Get the assumptions, the riskiest one,
+        the question a skeptical judge would ask, and how to patch the gap.
+      </p>
+    </header>
+
+    <main class="layout">
+      <section class="panel input-panel">
+        <label for="idea">Your idea</label>
+        <textarea
+          id="idea"
+          rows="8"
+          placeholder="Example: An AI tool that stress-tests hackathon ideas instead of just validating them..."
+        ></textarea>
+        <div class="actions">
+          <span id="char-count">0 / 5000</span>
+          <button id="analyze-btn" type="button">Get Second Opinion</button>
+        </div>
+        <p id="error" class="error hidden"></p>
+      </section>
+
+      <section id="results" class="panel results-panel hidden">
+        <div class="results-header">
+          <h2>Verdict</h2>
+          <p class="results-note">Honest feedback, not cheerleading.</p>
+        </div>
+
+        <div class="cards">
+          <article class="card" data-section="assumptions">
+            <h3>Assumptions</h3>
+            <div class="card-body"></div>
+          </article>
+          <article class="card highlight" data-section="riskiest">
+            <h3>Riskiest Assumption</h3>
+            <div class="card-body"></div>
+          </article>
+          <article class="card highlight" data-section="question">
+            <h3>Tough Question</h3>
+            <div class="card-body"></div>
+          </article>
+          <article class="card" data-section="patch">
+            <h3>How to Patch It</h3>
+            <div class="card-body"></div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <div id="loading" class="loading hidden" aria-live="polite">
+      <div class="spinner"></div>
+      <p>Playing devil's advocate...</p>
+    </div>
+  </div>
+
+  <script>
+    const ideaInput = document.getElementById("idea");
+    const analyzeBtn = document.getElementById("analyze-btn");
+    const charCount = document.getElementById("char-count");
+    const errorEl = document.getElementById("error");
+    const resultsEl = document.getElementById("results");
+    const loadingEl = document.getElementById("loading");
+
+    const sectionLabels = {
+      assumptions: "Assumptions",
+      riskiest: "Riskiest Assumption",
+      question: "Tough Question",
+      patch: "How to Patch It",
+    };
+
+    function stripHeader(text, label) {
+      const pattern = new RegExp(`^(?:\\d+\\.\\s*)?${label}\\s*:?\\s*`, "i");
+      return text.replace(pattern, "").trim();
+    }
+
+    function renderMarkdownish(text) {
+      return text
+        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+        .replace(/\n/g, "<br>");
+    }
+
+    ideaInput.addEventListener("input", () => {
+      charCount.textContent = `${ideaInput.value.length} / 5000`;
+    });
+
+    analyzeBtn.addEventListener("click", async () => {
+      const idea = ideaInput.value.trim();
+      errorEl.classList.add("hidden");
+      resultsEl.classList.add("hidden");
+
+      if (!idea) {
+        errorEl.textContent = "Describe your idea first.";
+        errorEl.classList.remove("hidden");
+        return;
+      }
+
+      analyzeBtn.disabled = true;
+      loadingEl.classList.remove("hidden");
+
+      try {
+        const response = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idea }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Something went wrong.");
+        }
+
+        const sections = data.sections || {};
+
+        if (sections.raw) {
+          document.querySelector('[data-section="assumptions"] .card-body').innerHTML =
+            renderMarkdownish(sections.raw);
+          document.querySelector('[data-section="riskiest"]').classList.add("hidden");
+          document.querySelector('[data-section="question"]').classList.add("hidden");
+          document.querySelector('[data-section="patch"]').classList.add("hidden");
+        } else {
+          for (const [key, label] of Object.entries(sectionLabels)) {
+            const card = document.querySelector(`[data-section="${key}"]`);
+            card.classList.remove("hidden");
+            const body = card.querySelector(".card-body");
+            const content = stripHeader(sections[key] || "", label);
+            body.innerHTML = content ? renderMarkdownish(content) : "<em>No content returned.</em>";
+          }
+        }
+
+        resultsEl.classList.remove("hidden");
+        resultsEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.classList.remove("hidden");
+      } finally {
+        analyzeBtn.disabled = false;
+        loadingEl.classList.add("hidden");
+      }
+    });
+  </script>
+</body>
+</html>
