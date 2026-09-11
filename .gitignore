@@ -1,8 +1,15 @@
 __pycache__/
 *.py[cod]
+*$py.class
 .env
 .venv/
 venv/
+env/
+ENV/
 .idea/
 .vscode/
 *.log
+*.db
+data/
+.DS_Store
+instance/

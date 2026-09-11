@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Second Opinion{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <canvas id="bg-canvas" aria-hidden="true"></canvas>
+  <div class="page">
+    <nav class="top-nav">
+      <a href="/" class="brand">Second Opinion</a>
+      <div class="nav-links">
+        <a href="/" {% if request.path == '/' %}class="active"{% endif %}>Critique</a>
+        <a href="/leaderboard" {% if request.path == '/leaderboard' %}class="active"{% endif %}>Leaderboard</a>
+        <a href="/practice" {% if request.path == '/practice' %}class="active"{% endif %}>Practice Pitch</a>
+      </div>
+    </nav>
+    {% block content %}{% endblock %}
+  </div>
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js" defer></script>
+  <script src="{{ url_for('static', filename='js/background.js') }}" defer></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

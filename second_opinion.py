@@ -1,9 +1,8 @@
 import os
 import re
 import time
-from google import genai
 
-client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+from google import genai
 
 PROMPT_TEMPLATE = """You are a sharp, skeptical startup mentor and hackathon judge.
 Someone has pitched you this idea:
@@ -19,14 +18,26 @@ Do the following, clearly labeled with headers:
 
 Be direct and honest, not falsely encouraging. Keep it concise."""
 
+MODEL_NAME = "gemini-flash-lite-latest"
+_client = None
 
-def get_second_opinion(idea: str, max_retries: int = 4) -> str:
-    prompt = PROMPT_TEMPLATE.format(idea=idea)
 
+def get_client():
+    global _client
+    if _client is None:
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            raise RuntimeError("GEMINI_API_KEY is not set.")
+        _client = genai.Client(api_key=api_key)
+    return _client
+
+
+def generate_with_retry(prompt: str, max_retries: int = 4) -> str:
+    """Call Gemini with retries for transient errors such as 503."""
     for attempt in range(max_retries):
         try:
-            response = client.models.generate_content(
-                model="gemini-flash-lite-latest",
+            response = get_client().models.generate_content(
+                model=MODEL_NAME,
                 contents=prompt,
             )
             return response.text
@@ -36,6 +47,11 @@ def get_second_opinion(idea: str, max_retries: int = 4) -> str:
             time.sleep(10)
 
     return "Sorry, Gemini's servers are too busy right now. Try again in a few minutes."
+
+
+def get_second_opinion(idea: str, max_retries: int = 4) -> str:
+    prompt = PROMPT_TEMPLATE.replace("{idea}", idea)
+    return generate_with_retry(prompt, max_retries=max_retries)
 
 
 SECTION_PATTERNS = [

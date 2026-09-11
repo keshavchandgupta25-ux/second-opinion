@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Leaderboard · Second Opinion{% endblock %}
+
+{% block content %}
+<header class="hero">
+  <p class="eyebrow">Local rankings</p>
+  <h1>Leaderboard</h1>
+  <p class="subtitle">
+    Past critiques ranked by Pitch Readiness Score. Scores are AI-generated heuristic estimates,
+    not scientific predictions.
+  </p>
+</header>
+
+<section class="panel glass">
+  {% if submissions %}
+  <div class="table-wrap">
+    <table class="board">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Idea</th>
+          <th>Pitch Readiness</th>
+          <th>Win Probability</th>
+          <th>When</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in submissions %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ item.title }}</td>
+          <td>{% if item.pitch_readiness is not none %}{{ item.pitch_readiness }}/10{% else %}—{% endif %}</td>
+          <td>{% if item.win_probability is not none %}{{ item.win_probability }}%{% else %}—{% endif %}</td>
+          <td>{{ item.created_at.replace('T', ' ') }} UTC</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">No submissions yet. Critique an idea on the home page first.</p>
+  {% endif %}
+</section>
+{% endblock %}
