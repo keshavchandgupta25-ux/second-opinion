@@ -350,3 +350,35 @@ button:disabled {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* --- Step 6: shareable results card additions (additive only) --- */
+.card-body pre {
+  font: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+
+.link-button {
+  display: inline-block;
+  text-decoration: none;
+}
+
+#share-status a {
+  color: var(--accent);
+}
+
+/* --- Practice Pitch: upload-video mode additions (additive only) --- */
+#uploaded-video {
+  width: 100%;
+  max-height: 360px;
+  object-fit: cover;
+  border-radius: 18px;
+  background: #05070c;
+  box-shadow: var(--shadow);
+}
+
+input[type="file"] {
+  color: var(--muted);
+  font: inherit;
+}

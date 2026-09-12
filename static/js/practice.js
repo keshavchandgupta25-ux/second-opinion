@@ -9,6 +9,18 @@
   const resultsEl = document.getElementById("practice-results");
   const feedbackEl = document.getElementById("practice-feedback");
   const loadingEl = document.getElementById("practice-loading");
+  const deliveryScoreEl = document.getElementById("delivery-score");
+  const deliveryReasonEl = document.getElementById("delivery-reason");
+
+  const modeLiveBtn = document.getElementById("mode-live-btn");
+  const modeUploadBtn = document.getElementById("mode-upload-btn");
+  const livePanel = document.getElementById("live-panel");
+  const uploadPanel = document.getElementById("upload-panel");
+  const videoUploadInput = document.getElementById("video-upload");
+  const uploadedVideo = document.getElementById("uploaded-video");
+  const uploadStatusEl = document.getElementById("upload-status");
+  const autoTranscribeBtn = document.getElementById("auto-transcribe-btn");
+  const uploadFeedbackBtn = document.getElementById("upload-feedback-btn");
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -96,6 +108,36 @@
     statusEl.textContent = "Recording... speak clearly.";
   }
 
+  async function submitForFeedback(transcript, secondsValue) {
+    if (!transcript) {
+      showError("No transcript to send yet — record, type, or auto-transcribe first.");
+      return;
+    }
+
+    showError("");
+    loadingEl.classList.remove("hidden");
+    try {
+      const response = await fetch("/api/practice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript, seconds: secondsValue || 1 }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Could not get feedback.");
+      }
+      feedbackEl.textContent = data.feedback;
+      deliveryScoreEl.textContent =
+        data.delivery_score == null ? "—" : data.delivery_score + " / 10";
+      deliveryReasonEl.textContent = data.delivery_reason || "";
+      resultsEl.classList.remove("hidden");
+    } catch (err) {
+      showError(err.message || "Could not get feedback.");
+    } finally {
+      loadingEl.classList.add("hidden");
+    }
+  }
+
   async function stopRecording() {
     window.clearInterval(tickId);
     stopRecognition();
@@ -111,26 +153,122 @@
       return;
     }
 
-    loadingEl.classList.remove("hidden");
-    try {
-      const response = await fetch("/api/practice", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript, seconds: elapsed || 1 }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "Could not get feedback.");
-      }
-      feedbackEl.textContent = data.feedback;
-      resultsEl.classList.remove("hidden");
-    } catch (err) {
-      showError(err.message || "Could not get feedback.");
-    } finally {
-      loadingEl.classList.add("hidden");
-    }
+    await submitForFeedback(transcript, elapsed || 1);
   }
 
   startBtn.addEventListener("click", startRecording);
   stopBtn.addEventListener("click", stopRecording);
+
+  // --- Upload-video mode (additive; does not touch the live-recording flow above) ---
+
+  function setActiveMode(mode) {
+    const isLive = mode === "live";
+    livePanel.classList.toggle("hidden", !isLive);
+    uploadPanel.classList.toggle("hidden", isLive);
+    modeLiveBtn.classList.toggle("ghost", !isLive);
+    modeUploadBtn.classList.toggle("ghost", isLive);
+    showError("");
+  }
+
+  if (modeLiveBtn && modeUploadBtn) {
+    modeLiveBtn.addEventListener("click", () => setActiveMode("live"));
+    modeUploadBtn.addEventListener("click", () => setActiveMode("upload"));
+  }
+
+  let uploadedObjectUrl = null;
+  let uploadRecognition = null;
+  let uploadDurationSeconds = 0;
+
+  function stopUploadRecognition() {
+    if (uploadRecognition) {
+      uploadRecognition.onend = null;
+      uploadRecognition.stop();
+      uploadRecognition = null;
+    }
+  }
+
+  if (videoUploadInput) {
+    videoUploadInput.addEventListener("change", () => {
+      const file = videoUploadInput.files && videoUploadInput.files[0];
+      showError("");
+      transcriptEl.value = "";
+      resultsEl.classList.add("hidden");
+      stopUploadRecognition();
+
+      if (!file) {
+        return;
+      }
+
+      if (uploadedObjectUrl) {
+        URL.revokeObjectURL(uploadedObjectUrl);
+      }
+      uploadedObjectUrl = URL.createObjectURL(file);
+      uploadedVideo.src = uploadedObjectUrl;
+      uploadedVideo.load();
+      uploadStatusEl.textContent = "Video loaded. Play it, or use auto-transcribe below.";
+    });
+
+    uploadedVideo.addEventListener("loadedmetadata", () => {
+      const duration = Math.round(uploadedVideo.duration) || 1;
+      uploadDurationSeconds = Math.max(1, Math.min(180, duration));
+    });
+  }
+
+  if (autoTranscribeBtn) {
+    autoTranscribeBtn.addEventListener("click", () => {
+      if (!uploadedVideo.src) {
+        showError("Upload a video first.");
+        return;
+      }
+      if (!SpeechRecognition) {
+        showError("Auto-transcribe needs Chrome or Edge. You can still type the transcript by hand.");
+        return;
+      }
+
+      stopUploadRecognition();
+      transcriptEl.value = "";
+      uploadStatusEl.textContent =
+        "Listening through your microphone as the video plays — turn the volume up and keep it quiet around you.";
+
+      uploadRecognition = new SpeechRecognition();
+      uploadRecognition.lang = "en-US";
+      uploadRecognition.interimResults = true;
+      uploadRecognition.continuous = true;
+      uploadRecognition.onresult = (event) => {
+        let text = "";
+        for (let i = 0; i < event.results.length; i += 1) {
+          text += event.results[i][0].transcript + " ";
+        }
+        transcriptEl.value = text.trim();
+      };
+      uploadRecognition.onerror = (event) => {
+        if (event.error !== "aborted") {
+          showError("Speech recognition error: " + event.error);
+        }
+      };
+      uploadRecognition.onend = () => {
+        uploadStatusEl.textContent = "Auto-transcribe stopped. Edit the transcript if needed, then Get Feedback.";
+      };
+
+      uploadedVideo.currentTime = 0;
+      uploadedVideo.muted = false;
+      uploadedVideo.play().catch(() => {
+        showError("Couldn't autoplay the video — press play on it yourself, then try auto-transcribe again.");
+      });
+      uploadRecognition.start();
+
+      uploadedVideo.onended = () => {
+        stopUploadRecognition();
+      };
+    });
+  }
+
+  if (uploadFeedbackBtn) {
+    uploadFeedbackBtn.addEventListener("click", async () => {
+      stopUploadRecognition();
+      const transcript = transcriptEl.value.trim();
+      const seconds = uploadDurationSeconds || 30;
+      await submitForFeedback(transcript, seconds);
+    });
+  }
 })();
