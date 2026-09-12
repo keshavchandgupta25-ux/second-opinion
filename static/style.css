@@ -342,6 +342,7 @@ button:disabled {
   }
 }
 
+
 @media (min-width: 800px) {
   .score-row,
   .cards,
