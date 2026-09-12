@@ -41,7 +41,8 @@ def generate_with_retry(prompt: str, max_retries: int = 4) -> str:
                 contents=prompt,
             )
             return response.text
-        except Exception:
+        except Exception as e:
+            print(f"[Gemini error] {type(e).__name__}: {e}")
             if attempt == max_retries - 1:
                 raise
             time.sleep(10)
@@ -90,4 +91,3 @@ if __name__ == "__main__":
     print("\nAnalyzing...\n")
     result = get_second_opinion(idea)
     print(result)
-
