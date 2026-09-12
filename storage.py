@@ -61,3 +61,4 @@ def list_submissions() -> list[dict]:
             """
         ).fetchall()
     return [dict(row) for row in rows]
+

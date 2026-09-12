@@ -16,6 +16,7 @@ app.register_blueprint(leaderboard_bp)
 app.register_blueprint(practice_bp)
 init_db()
 
+
 MAX_IDEA_LENGTH = 5000
 
 

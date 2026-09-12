@@ -90,3 +90,4 @@ if __name__ == "__main__":
     print("\nAnalyzing...\n")
     result = get_second_opinion(idea)
     print(result)
+

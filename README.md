@@ -4,7 +4,7 @@ AI tool that stress-tests hackathon and startup ideas instead of just validating
 
 Built for **Hack Days Solan 2026** using the Google Gemini API (`gemini-flash-lite-latest`).
 
-## What's Really Doing
+## What it does
 
 1. Extracts the core assumptions behind an idea
 2. Identifies the single riskiest assumption
