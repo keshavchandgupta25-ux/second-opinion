@@ -105,6 +105,8 @@
         throw new Error(data.error || "Something went wrong.");
       }
 
+      window.SecondOpinionLastResult = data;
+
       const sections = data.sections || {};
       const scores = data.scores || {};
 

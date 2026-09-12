@@ -7,6 +7,7 @@ from flask import Flask, jsonify, render_template, request
 from leaderboard import leaderboard_bp
 from practice import practice_bp
 from scoring import analyze_idea
+from share import share_bp
 from storage import init_db, save_submission
 
 load_dotenv()
@@ -14,6 +15,7 @@ load_dotenv()
 app = Flask(__name__)
 app.register_blueprint(leaderboard_bp)
 app.register_blueprint(practice_bp)
+app.register_blueprint(share_bp)
 init_db()
 
 
