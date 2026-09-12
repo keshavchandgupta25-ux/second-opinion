@@ -47,7 +47,7 @@ def save_submission(
         conn.commit()
 
 
-def list_submissions() -> list[dict]:
+def list_submissions():
     init_db()
     with _connect() as conn:
         rows = conn.execute(
@@ -61,4 +61,3 @@ def list_submissions() -> list[dict]:
             """
         ).fetchall()
     return [dict(row) for row in rows]
-

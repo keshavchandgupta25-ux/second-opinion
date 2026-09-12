@@ -7,20 +7,14 @@
   <p class="eyebrow">Isolated rehearsal room</p>
   <h1>Practice Pitch</h1>
   <p class="subtitle">
-    Record up to 60 seconds live, or upload a pitch video you already recorded.
-    Speech-to-text uses the browser's built-in Web Speech API — or just type/paste your own transcript.
-    Gemini then critiques clarity, pacing, filler words, and gives an overall Delivery Score.
+    Record up to 60 seconds. The webcam is only a self-view — no facial analysis.
+    Speech-to-text uses the browser's built-in Web Speech API, then Gemini critiques clarity, pacing, and filler words.
   </p>
 </header>
 
 <main class="layout">
   <section class="panel glass">
-    <div class="action-buttons" style="margin-bottom: 18px;">
-      <button id="mode-live-btn" type="button">Record live</button>
-      <button id="mode-upload-btn" type="button" class="ghost">Upload a video</button>
-    </div>
-
-    <div id="live-panel" class="rehearsal">
+    <div class="rehearsal">
       <video id="camera" autoplay muted playsinline></video>
       <div class="rehearsal-meta">
         <p id="timer" class="score-value">0:00 / 1:00</p>
@@ -31,37 +25,14 @@
         </div>
       </div>
     </div>
-
-    <div id="upload-panel" class="rehearsal hidden">
-      <video id="uploaded-video" controls playsinline></video>
-      <div class="rehearsal-meta">
-        <label for="video-upload">Upload your pitch video</label>
-        <input id="video-upload" type="file" accept="video/*">
-        <p id="upload-status" class="muted">No video uploaded yet.</p>
-        <div class="action-buttons">
-          <button id="auto-transcribe-btn" type="button" class="ghost">Auto-transcribe (uses mic)</button>
-          <button id="upload-feedback-btn" type="button">Get Feedback</button>
-        </div>
-      </div>
-    </div>
-
-    <label for="transcript">Transcript</label>
-    <textarea id="transcript" rows="6" placeholder="Your spoken words will appear here, or type/paste your own..."></textarea>
+    <label for="transcript">Live transcript</label>
+    <textarea id="transcript" rows="6" placeholder="Your spoken words will appear here..."></textarea>
     <p id="practice-error" class="error hidden"></p>
   </section>
 
   <section id="practice-results" class="panel glass hidden">
     <h2>Pitch feedback</h2>
     <p class="heuristic-note">Heuristic coaching from Gemini based only on transcript and elapsed time.</p>
-
-    <div class="score-row">
-      <article class="card glass score-card" data-score="delivery">
-        <h3>Delivery Score</h3>
-        <p class="score-value" id="delivery-score">—</p>
-        <p class="score-reason" id="delivery-reason"></p>
-      </article>
-    </div>
-
     <div id="practice-feedback" class="card-body"></div>
   </section>
 </main>

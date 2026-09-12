@@ -42,12 +42,7 @@ def _first_int(pattern: str, text: str) -> Optional[int]:
 
 def parse_scores(text: str) -> dict:
     pitch = _first_int(r"PITCH READINESS\s*:?\s*(\d+)\s*/\s*10", text)
-    if pitch is None:
-        pitch = _first_int(r"RANKING\s*:?\s*(\d+)\s*/\s*10", text)
-
     win = _first_int(r"WIN PROBABILITY\s*:?\s*(\d+)\s*%", text)
-    if win is None:
-        win = _first_int(r"WIN RATE\s*:?\s*(\d+)\s*%", text)
 
     pitch_reason = ""
     win_reason = ""
@@ -68,16 +63,6 @@ def parse_scores(text: str) -> dict:
     if win_block:
         win_reason = win_block.group(1).strip()
 
-    if not pitch_reason:
-        rationale = re.search(
-            r"(?:\d+\.\s*)?SCORE RATIONALE\s*:?\s*(.+)$",
-            text,
-            re.IGNORECASE | re.DOTALL,
-        )
-        if rationale:
-            pitch_reason = rationale.group(1).strip().split("\n")[0]
-            win_reason = win_reason or pitch_reason
-
     if pitch is not None:
         pitch = max(0, min(10, pitch))
     if win is not None:
@@ -93,6 +78,4 @@ def parse_scores(text: str) -> dict:
 
 def analyze_idea(idea: str) -> dict:
     raw = get_scored_opinion(idea)
-    sections = parse_sections(raw)
-    scores = parse_scores(raw)
-    return {"raw": raw, "sections": sections, "scores": scores}
+    return {"raw": raw, "sections": parse_sections(raw), "scores": parse_scores(raw)}

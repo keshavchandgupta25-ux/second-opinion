@@ -1,5 +1,6 @@
 import os
 import re
+import traceback
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
@@ -7,7 +8,6 @@ from flask import Flask, jsonify, render_template, request
 from leaderboard import leaderboard_bp
 from practice import practice_bp
 from scoring import analyze_idea
-from share import share_bp
 from storage import init_db, save_submission
 
 load_dotenv()
@@ -15,9 +15,7 @@ load_dotenv()
 app = Flask(__name__)
 app.register_blueprint(leaderboard_bp)
 app.register_blueprint(practice_bp)
-app.register_blueprint(share_bp)
 init_db()
-
 
 MAX_IDEA_LENGTH = 5000
 
@@ -47,7 +45,11 @@ def analyze():
         return jsonify({"error": f"Keep it under {MAX_IDEA_LENGTH} characters."}), 400
 
     if not os.environ.get("GEMINI_API_KEY"):
-        return jsonify({"error": "GEMINI_API_KEY is not set on the server."}), 500
+        return jsonify(
+            {
+                "error": "GEMINI_API_KEY is not set. Create a .env file in this folder (copy .env.example) and add your key."
+            }
+        ), 500
 
     try:
         result = analyze_idea(idea)
@@ -58,11 +60,27 @@ def analyze():
             win_probability=scores.get("win_probability"),
         )
         return jsonify(result)
-    except Exception:
+    except RuntimeError as exc:
+        traceback.print_exc()
+        return jsonify({"error": str(exc)}), 401
+    except Exception as exc:
+        traceback.print_exc()
+        print("[analyze error]", type(exc).__name__, exc)
+        message = str(exc)
+        if "401" in message or "UNAUTHENTICATED" in message:
+            return jsonify(
+                {
+                    "error": "Gemini rejected this API key. Get a key at https://aistudio.google.com/apikey, put it in .env as GEMINI_API_KEY, and restart the app."
+                }
+            ), 401
         return jsonify(
             {"error": "Analysis failed. Gemini may be busy — try again in a minute."}
         ), 502
 
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(debug=os.environ.get("FLASK_DEBUG") == "1", host="0.0.0.0", port=port)
+    print("Second Opinion is starting.")
+    print("Open this URL in your browser: http://127.0.0.1:%s" % port)
+    print("Do not use Live Server or port 5500.")
+    app.run(debug=True, host="127.0.0.1", port=port)

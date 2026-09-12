@@ -2,9 +2,9 @@
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   window.SecondOpinionVoice = {
-    listen(onText, onStatus, onError) {
+    listen: function (onText, onStatus, onError) {
       if (!SpeechRecognition) {
-        onError("Voice input needs Chrome or Edge on this machine.");
+        onError("Voice input needs Chrome or Edge.");
         return null;
       }
 
@@ -12,27 +12,32 @@
       recognition.lang = "en-US";
       recognition.interimResults = true;
       recognition.continuous = true;
-
-      recognition.onstart = () => onStatus("Listening... speak your idea.");
-      recognition.onerror = (event) => {
+      recognition.onstart = function () {
+        onStatus("Listening... speak your idea.");
+      };
+      recognition.onerror = function (event) {
         if (event.error !== "aborted") {
           onError("Mic error: " + event.error);
         }
       };
-      recognition.onend = () => onStatus("");
-      recognition.onresult = (event) => {
+      recognition.onend = function () {
+        onStatus("");
+      };
+      recognition.onresult = function (event) {
         let text = "";
         for (let i = 0; i < event.results.length; i += 1) {
           text += event.results[i][0].transcript + " ";
         }
         onText(text.trim());
       };
-
       recognition.start();
       return recognition;
     },
 
-    speak(text) {
+    speak: function (text) {
+      if (!window.speechSynthesis) {
+        return;
+      }
       window.speechSynthesis.cancel();
       if (!text) {
         return;
@@ -42,8 +47,10 @@
       window.speechSynthesis.speak(utterance);
     },
 
-    stopSpeaking() {
-      window.speechSynthesis.cancel();
+    stopSpeaking: function () {
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
     },
   };
 })();

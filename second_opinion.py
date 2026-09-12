@@ -2,7 +2,15 @@ import os
 import re
 import time
 
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
+
 from google import genai
+from google.genai.errors import ClientError
 
 PROMPT_TEMPLATE = """You are a sharp, skeptical startup mentor and hackathon judge.
 Someone has pitched you this idea:
@@ -19,35 +27,66 @@ Do the following, clearly labeled with headers:
 Be direct and honest, not falsely encouraging. Keep it concise."""
 
 MODEL_NAME = "gemini-flash-lite-latest"
+AUTH_HELP = (
+    "Gemini rejected this API key. Get a Google AI Studio key at "
+    "https://aistudio.google.com/apikey then put it in GEMINI_API_KEY "
+    "or a .env file in this folder, and restart the app."
+)
 _client = None
+
+
+def _api_key() -> str:
+    key = (os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or "").strip()
+    if not key:
+        raise RuntimeError(
+            "GEMINI_API_KEY is not set. Copy .env.example to .env, add your key, and restart."
+        )
+    return key
 
 
 def get_client():
     global _client
     if _client is None:
-        api_key = os.environ.get("GEMINI_API_KEY")
-        if not api_key:
-            raise RuntimeError("GEMINI_API_KEY is not set.")
-        _client = genai.Client(api_key=api_key)
+        _client = genai.Client(api_key=_api_key(), vertexai=False)
     return _client
 
 
 def generate_with_retry(prompt: str, max_retries: int = 4) -> str:
-    """Call Gemini with retries for transient errors such as 503."""
-    for attempt in range(max_retries):
-        try:
-            response = get_client().models.generate_content(
-                model=MODEL_NAME,
-                contents=prompt,
-            )
-            return response.text
-        except Exception as e:
-            print(f"[Gemini error] {type(e).__name__}: {e}")
-            if attempt == max_retries - 1:
-                raise
-            time.sleep(10)
+    """Call Gemini. Retry 503s. Do not retry a bad API key."""
+    global _client
+    api_key = _api_key()
+    last_error = None
 
-    return "Sorry, Gemini's servers are too busy right now. Try again in a few minutes."
+    for vertexai in (False, True):
+        client = genai.Client(api_key=api_key, vertexai=vertexai)
+        for attempt in range(max_retries):
+            try:
+                response = client.models.generate_content(
+                    model=MODEL_NAME,
+                    contents=prompt,
+                )
+                text = (response.text or "").strip()
+                if not text:
+                    raise RuntimeError("Gemini returned an empty reply. Try a shorter idea.")
+                _client = client
+                return text
+            except ClientError as exc:
+                last_error = exc
+                print("[Gemini error]", exc.code, exc.status, exc.message)
+                if exc.code in (401, 403):
+                    break
+                if exc.code in (429, 500, 503) and attempt < max_retries - 1:
+                    time.sleep(10)
+                    continue
+                raise
+            except Exception as exc:
+                last_error = exc
+                print("[Gemini error]", type(exc).__name__, exc)
+                if attempt == max_retries - 1:
+                    raise
+                time.sleep(10)
+
+    raise RuntimeError(AUTH_HELP) from last_error
 
 
 def get_second_opinion(idea: str, max_retries: int = 4) -> str:
@@ -60,12 +99,15 @@ SECTION_PATTERNS = [
     ("riskiest", r"(?:\d+\.\s*)?RISKIEST ASSUMPTION\s*:?\s*"),
     ("question", r"(?:\d+\.\s*)?TOUGH QUESTION\s*:?\s*"),
     ("patch", r"(?:\d+\.\s*)?HOW TO PATCH IT\s*:?\s*"),
+    ("_pitch", r"(?:\d+\.\s*)?PITCH READINESS\s*:?\s*"),
+    ("_win", r"(?:\d+\.\s*)?WIN PROBABILITY\s*:?\s*"),
 ]
 
 
-def parse_sections(text: str) -> dict[str, str]:
+def parse_sections(text: str) -> dict:
     """Split Gemini output into labeled sections for the UI."""
-    sections = {key: "" for key, _ in SECTION_PATTERNS}
+    display_keys = ("assumptions", "riskiest", "question", "patch")
+    sections = {key: "" for key in display_keys}
     matches = []
 
     for key, pattern in SECTION_PATTERNS:
@@ -76,6 +118,8 @@ def parse_sections(text: str) -> dict[str, str]:
     matches.sort(key=lambda item: item[0])
 
     for index, (_, key, start) in enumerate(matches):
+        if key.startswith("_"):
+            continue
         end = matches[index + 1][0] if index + 1 < len(matches) else len(text)
         sections[key] = text[start:end].strip()
 

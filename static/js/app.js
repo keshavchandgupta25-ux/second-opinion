@@ -9,6 +9,10 @@
   const loadingEl = document.getElementById("loading");
   const micStatus = document.getElementById("mic-status");
 
+  if (!ideaInput || !analyzeBtn) {
+    return;
+  }
+
   const sectionLabels = {
     assumptions: "Assumptions",
     riskiest: "Riskiest Assumption",
@@ -25,7 +29,7 @@
   }
 
   function escapeHtml(text) {
-    return text
+    return String(text)
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
@@ -42,48 +46,55 @@
     errorEl.classList.remove("hidden");
   }
 
-  ideaInput.addEventListener("input", () => {
+  ideaInput.addEventListener("input", function () {
     charCount.textContent = ideaInput.value.length + " / 5000";
   });
 
-  micBtn.addEventListener("click", () => {
+  micBtn.addEventListener("click", function () {
+    const voice = window.SecondOpinionVoice;
+    if (!voice) {
+      showError("Voice script did not load. Refresh the page.");
+      return;
+    }
     if (recognition) {
       recognition.stop();
       recognition = null;
       micBtn.textContent = "Mic";
       return;
     }
-
-    recognition = window.SecondOpinionVoice.listen(
-      (text) => {
+    recognition = voice.listen(
+      function (text) {
         ideaInput.value = text;
         charCount.textContent = ideaInput.value.length + " / 5000";
       },
-      (status) => {
+      function (status) {
         micStatus.textContent = status;
         micStatus.classList.toggle("hidden", !status);
       },
-      (message) => {
+      function (message) {
         showError(message);
         recognition = null;
         micBtn.textContent = "Mic";
       }
     );
-
     if (recognition) {
       micBtn.textContent = "Stop mic";
     }
   });
 
-  speakBtn.addEventListener("click", () => {
-    window.SecondOpinionVoice.speak(lastSpokenText);
+  speakBtn.addEventListener("click", function () {
+    if (window.SecondOpinionVoice) {
+      window.SecondOpinionVoice.speak(lastSpokenText);
+    }
   });
 
-  analyzeBtn.addEventListener("click", async () => {
+  analyzeBtn.addEventListener("click", async function () {
     const idea = ideaInput.value.trim();
     errorEl.classList.add("hidden");
     resultsEl.classList.add("hidden");
-    window.SecondOpinionVoice.stopSpeaking();
+    if (window.SecondOpinionVoice) {
+      window.SecondOpinionVoice.stopSpeaking();
+    }
 
     if (!idea) {
       showError("Describe your idea first.");
@@ -97,15 +108,13 @@
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idea }),
+        body: JSON.stringify({ idea: idea }),
       });
 
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || "Something went wrong.");
       }
-
-      window.SecondOpinionLastResult = data;
 
       const sections = data.sections || {};
       const scores = data.scores || {};
@@ -127,7 +136,8 @@
         document.querySelector('[data-section="patch"]').classList.add("hidden");
         spokenParts.push(sections.raw);
       } else {
-        for (const [key, label] of Object.entries(sectionLabels)) {
+        Object.keys(sectionLabels).forEach(function (key) {
+          const label = sectionLabels[key];
           const card = document.querySelector('[data-section="' + key + '"]');
           card.classList.remove("hidden");
           const content = stripHeader(sections[key] || "", label);
@@ -137,7 +147,7 @@
           if (content) {
             spokenParts.push(label + ". " + content);
           }
-        }
+        });
       }
 
       lastSpokenText = [
